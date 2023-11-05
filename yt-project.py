@@ -1,8 +1,9 @@
+from googleapiclient.discovery import build
 import pymongo
 import mysql.connector
 import pandas as pd
 import streamlit as st
-from googleapiclient.discovery import build
+
 
 #API key connection
 def Api_connect():
@@ -104,8 +105,8 @@ def get_video_info(video_ids):
                         Channel_Id = item['snippet']['channelId'],
                         Video_Id = item['id'],
                         Title = item['snippet']['title'],
-                        Tags = item['snippet'].get('tags'),
-                        Thumbnail = item['snippet']['thumbnails']['default']['url'],
+                        #Tags = item['snippet'].get('tags'),
+                        #Thumbnail = item['snippet']['thumbnails']['default']['url'],
                         Description = item['snippet']['description'],
                         Published_Date = item['snippet']['publishedAt'],
                         Duration = item['contentDetails']['duration'],
@@ -219,6 +220,7 @@ def channels_table():
                 row['Total_Videos'],
                 row['Channel_Description'],
                 row['Playlist_Id'])
+
         try:                     
             cursor.execute(insert_query,values)
             mydb.commit()    
@@ -244,7 +246,7 @@ def playlists_table():
                         Title varchar(80), 
                         ChannelId varchar(100), 
                         ChannelName varchar(100),
-                        PublishedAt timestamp,
+                        PublishedAt varchar(100),
                         VideoCount int
                         )'''
         cursor.execute(create_query)
@@ -276,8 +278,8 @@ def playlists_table():
                 row['ChannelName'],
                 row['PublishedAt'],
                 row['VideoCount'])
-                
-        try:                     
+    
+        try:                 
             cursor.execute(insert_query,values)
             mydb.commit()    
         except:
@@ -303,11 +305,9 @@ def videos_table():
                         Channel_Id varchar(100),
                         Video_Id varchar(50) primary key, 
                         Title varchar(150), 
-                        Tags text,
-                        Thumbnail varchar(225),
                         Description text, 
-                        Published_Date timestamp,
-                        Duration interval, 
+                        Published_Date varchar(100),
+                        Duration varchar(20), 
                         Views bigint, 
                         Likes bigint,
                         Comments int,
@@ -319,7 +319,7 @@ def videos_table():
         cursor.execute(create_query)             
         mydb.commit()
     except:
-        st.write("Videos Table alrady created")
+        st.write("Videos Table already created")
 
     vi_list = []
     db = client["Youtube_data"]
@@ -336,8 +336,6 @@ def videos_table():
                         Channel_Id,
                         Video_Id, 
                         Title, 
-                        Tags,
-                        Thumbnail,
                         Description, 
                         Published_Date,
                         Duration, 
@@ -348,7 +346,7 @@ def videos_table():
                         Definition, 
                         Caption_Status 
                         )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 
                 '''
         values = (
@@ -356,8 +354,6 @@ def videos_table():
                     row['Channel_Id'],
                     row['Video_Id'],
                     row['Title'],
-                    row['Tags'],
-                    row['Thumbnail'],
                     row['Description'],
                     row['Published_Date'],
                     row['Duration'],
@@ -366,9 +362,8 @@ def videos_table():
                     row['Comments'],
                     row['Favorite_Count'],
                     row['Definition'],
-                    row['Caption_Status'])
-                                
-        try:    
+                    row['Caption_Status']  )          
+        try:   
             cursor.execute(insert_query,values)
             mydb.commit()
         except:
@@ -394,12 +389,12 @@ def comments_table():
                        Video_Id varchar(80),
                        Comment_Text text, 
                        Comment_Author varchar(150),
-                       Comment_Published timestamp)'''
+                       Comment_Published varchar(20))'''
         cursor.execute(create_query)
         mydb.commit()
         
     except:
-        st.write("Commentsp Table already created")
+        st.write("Comments Table already created")
 
     com_list = []
     db = client["Youtube_data"]
@@ -478,15 +473,6 @@ def show_comments_table():
             com_list.append(com_data["comment_information"][i])
     comments_table = st.dataframe(com_list)
     return comments_table
-
-with st.sidebar:
-    st.title(":red[YOUTUBE DATA HARVESTING AND WAREHOUSING]")
-    st.header("SKILL TAKE AWAY")
-    st.caption('Python scripting')
-    st.caption("Data Collection")
-    st.caption("MongoDB")
-    st.caption("API Integration")
-    st.caption(" Data Managment using MongoDB and SQL")
     
 channel_id = st.text_input("Enter the Channel id")
 channels = channel_id.split(',')
@@ -524,7 +510,7 @@ elif show_table == ":blue[comments]":
 mydb = mysql.connector.connect(host="localhost",
             user="root",
             password="Sidpenguin",
-            database= "youtube_data",
+            database="youtube_data",
             port = "3306"
             )
 cursor = mydb.cursor()
@@ -541,75 +527,73 @@ question = st.selectbox(
      '8. videos published in the year 2022',
      '9. average duration of all videos in each channel',
      '10. videos with highest number of comments'))
-
-     
+  
 if question == '1. All the videos and the Channel Name':
-    query1 = "select Title as videos, Channel_Name as ChannelName from videos;"
+    query1 = '''select Title as videos, Channel_Name as ChannelName from videos;'''
     cursor.execute(query1)
+    df = pd.DataFrame(cursor.fetchall(),columns=["Video Title","Channel Name"])
+    st.write(df)
     mydb.commit()
-    t1=cursor.fetchall()
-    st.write(pd.DataFrame(t1, columns=["Video Title","Channel Name"]))
 
 elif question == '2. Channels with most number of videos':
     query2 = "select Channel_Name as ChannelName,Total_Videos as NO_Videos from channels order by Total_Videos desc;"
     cursor.execute(query2)
+    df = pd.DataFrame(cursor.fetchall(),columns=["Channel Name","No Of Videos"])
     mydb.commit()
-    t2=cursor.fetchall()
-    st.write(pd.DataFrame(t2, columns=["Channel Name","No Of Videos"]))
+    st.write(df)
 
 elif question == '3. 10 most viewed videos':
     query3 = '''select Views as views , Channel_Name as ChannelName,Title as VideoTitle from videos 
                         where Views is not null order by Views desc limit 10;'''
     cursor.execute(query3)
+    df = pd.DataFrame(cursor.fetchall(),columns=["views","channel Name","video title"])
     mydb.commit()
-    t3 = cursor.fetchall()
-    st.write(pd.DataFrame(t3, columns = ["views","channel Name","video title"]))
+    st.write(df)
 
 elif question == '4. Comments in each video':
     query4 = "select Comments as No_comments ,Title as VideoTitle from videos where Comments is not null;"
     cursor.execute(query4)
+    df = pd.DataFrame(cursor.fetchall(),columns=["No Of Comments", "Video Title"])
     mydb.commit()
-    t4=cursor.fetchall()
-    st.write(pd.DataFrame(t4, columns=["No Of Comments", "Video Title"]))
+    st.write(df)
 
 elif question == '5. Videos with highest likes':
     query5 = '''select Title as VideoTitle, Channel_Name as ChannelName, Likes as LikesCount from videos 
                        where Likes is not null order by Likes desc;'''
     cursor.execute(query5)
+    df = pd.DataFrame(cursor.fetchall(),columns=["video Title","channel Name","like count"])
     mydb.commit()
-    t5 = cursor.fetchall()
-    st.write(pd.DataFrame(t5, columns=["video Title","channel Name","like count"]))
+    st.write(df)
 
 elif question == '6. likes of all videos':
     query6 = '''select Likes as likeCount,Title as VideoTitle from videos;'''
     cursor.execute(query6)
+    df = pd.DataFrame(cursor.fetchall(),columns=["like count","video title"])
     mydb.commit()
-    t6 = cursor.fetchall()
-    st.write(pd.DataFrame(t6, columns=["like count","video title"]))
+    st.write(df)
 
 elif question == '7. views of each channel':
     query7 = "select Channel_Name as ChannelName, Views as Channelviews from channels;"
     cursor.execute(query7)
+    df = pd.DataFrame(cursor.fetchall(),columns=["channel name","total views"])
     mydb.commit()
-    t7=cursor.fetchall()
-    st.write(pd.DataFrame(t7, columns=["channel name","total views"]))
+    st.write(df)
 
 elif question == '8. videos published in the year 2022':
     query8 = '''select Title as Video_Title, Published_Date as VideoRelease, Channel_Name as ChannelName from videos 
                 where extract(year from Published_Date) = 2022;'''
     cursor.execute(query8)
+    df = pd.DataFrame(cursor.fetchall(),columns=["Name", "Video Publised On", "ChannelName"])
     mydb.commit()
-    t8=cursor.fetchall()
-    st.write(pd.DataFrame(t8,columns=["Name", "Video Publised On", "ChannelName"]))
+    st.write(df)
 
 elif question == '9. average duration of all videos in each channel':
     query9 =  "SELECT Channel_Name as ChannelName, AVG(Duration) AS average_duration FROM videos GROUP BY Channel_Name;"
     cursor.execute(query9)
+    df = pd.DataFrame(cursor.fetchall(),columns=['ChannelTitle', 'Average Duration'])
     mydb.commit()
-    t9=cursor.fetchall()
-    t9 = pd.DataFrame(t9, columns=['ChannelTitle', 'Average Duration'])
     T9=[]
-    for index, row in t9.iterrows():
+    for index, row in df.iterrows():
         channel_title = row['ChannelTitle']
         average_duration = row['Average Duration']
         average_duration_str = str(average_duration)
@@ -620,6 +604,6 @@ elif question == '10. videos with highest number of comments':
     query10 = '''select Title as VideoTitle, Channel_Name as ChannelName, Comments as Comments from videos 
                        where Comments is not null order by Comments desc;'''
     cursor.execute(query10)
+    df = pd.DataFrame(cursor.fetchall(),columns=['Video Title', 'Channel Name', 'NO Of Comments'])
     mydb.commit()
-    t10=cursor.fetchall()
-    st.write(pd.DataFrame(t10, columns=['Video Title', 'Channel Name', 'NO Of Comments']))
+    st.write(df)
